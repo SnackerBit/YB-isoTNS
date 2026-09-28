@@ -235,6 +235,7 @@ class TrustRegionOptimizer:
         costs = None
         Deltas = None
         N_iters_tCG_list = None
+        times = None
         iterates = None
         if log_debug_info:
             costs = [cost]
