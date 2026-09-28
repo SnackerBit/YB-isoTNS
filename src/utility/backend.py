@@ -1,3 +1,4 @@
+import os
 from enum import Enum
 import numpy as np
 import scipy
@@ -26,9 +27,29 @@ def set_backend(backend_enum):
         dtype_complex = np.complex128
         newaxis = np.newaxis
     elif backend_enum == BACKEND.JAX_CPU:
-        raise NotImplementedError("backend \"JAX_CPU\" is not implemented.")
+        os.environ["JAX_PLATFORMS"] = "cpu"
+        import jax
+        import jax.numpy as jnp
+        jax.config.update("jax_enable_x64", True)
+        backend = Backend.JAX_CPU
+        array_type = jnp.array
+        sparse_array_type = jax.experimental.sparse.BCOO
+        nan = jnp.nan
+        inf = jnp.inf
+        dtype_complex = jnp.complex128
+        newaxis = jnp.newaxis
     elif backend_enum == BACKEND.JAX_GPU:
-        raise NotImplementedError("backend \"JAX_GPU\" is not implemented.")
+        os.environ["JAX_PLATFORMS"] = "gpu"
+        import jax
+        import jax.numpy as jnp
+        jax.config.update("jax_enable_x64", True)
+        backend = Backend.JAX_GPU
+        array_type = jnp.array
+        sparse_array_type = jax.experimental.sparse.BCOO
+        nan = jnp.nan
+        inf = jnp.inf
+        dtype_complex = jnp.complex128
+        newaxis = jnp.newaxis
 
 log_matrix_ops = False
 
@@ -66,10 +87,8 @@ def reset_log_matrix_ops():
 def array(*args, **kwargs):
     if backend == Backend.NUMPY:
         return np.array(*args, **kwargs)
-    elif backend == BACKEND.JAX_CPU:
-        raise NotImplementedError("function \"array\" is not implemented for backend \"JAX_CPU\".")
-    elif backend == BACKEND.JAX_GPU:
-        raise NotImplementedError("function \"array\" is not implemented for backend \"JAX_CPU\".")
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
+        return jnp.array(*args, **kwargs)
 
 def safe_svd(A, full_matrices=True):
     """
@@ -107,34 +126,37 @@ def safe_svd(A, full_matrices=True):
                 k = min(m, n)
                 return np.zeros(m, k), np.zeros(k), np.zeros(k, n)
             return U, S, V
-    elif backend == BACKEND.JAX_CPU:
-        raise NotImplementedError("function \"safe_svd\" is not implemented for backend \"JAX_CPU\".")
-    elif backend == BACKEND.JAX_GPU:
-        raise NotImplementedError("function \"safe_svd\" is not implemented for backend \"JAX_CPU\".")
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
+        U, S, V = jnp.linalg.svd(A, full_matrices=full_matrices)
+        if np.isnan(U).any() or np.isinf(U).any() or np.isnan(S).any() or np.isinf(S).any() or np.isnan(V).any() or np.isinf(V).any():
+            if jnp.isnan(A).any() or jnp.isinf(A).any():
+                print("[WARNING]: Trying to perform SVD on a matrix with nan or inf entries!")
+            U, S, V = jnp.scipy.linalg.svd(A, full_matrices=full_matrices, lapack_driver='gesvd')
+            if np.isnan(U).any() or np.isinf(U).any() or np.isnan(S).any() or np.isinf(S).any() or np.isnan(V).any() or np.isinf(V).any():
+                print("[WARNING] scipy SVD did not converge!")
+                m, n = A.shape
+                k = min(m, n)
+                return np.zeros(m, k), np.zeros(k), np.zeros(k, n)
+            return U, S, V
+
 
 def sum(*args, **kwargs):
     if backend == Backend.NUMPY:
         return np.sum(*args, **kwargs)
-    elif backend == BACKEND.JAX_CPU:
-        raise NotImplementedError("function \"sum\" is not implemented for backend \"JAX_CPU\".")
-    elif backend == BACKEND.JAX_GPU:
-        raise NotImplementedError("function \"sum\" is not implemented for backend \"JAX_CPU\".")
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
+        return jnp.sum(*args, **kwargs)
 
 def argsort(*args, **kwargs):
     if backend == Backend.NUMPY:
         return np.argsort(*args, **kwargs)
-    elif backend == BACKEND.JAX_CPU:
-        raise NotImplementedError("function \"argsort\" is not implemented for backend \"JAX_CPU\".")
-    elif backend == BACKEND.JAX_GPU:
-        raise NotImplementedError("function \"argsort\" is not implemented for backend \"JAX_CPU\".")
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
+        return jnp.argsort(*args, **kwargs)
 
 def norm(*args, **kwargs):
     if backend == Backend.NUMPY:
         return np.linalg.norm(*args, **kwargs)
-    elif backend == BACKEND.JAX_CPU:
-        raise NotImplementedError("function \"norm\" is not implemented for backend \"JAX_CPU\".")
-    elif backend == BACKEND.JAX_GPU:
-        raise NotImplementedError("function \"norm\" is not implemented for backend \"JAX_CPU\".")
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
+        return jnp.linalg.norm(*args, **kwargs)
 
 def random(*args, **kwargs):
     if backend == Backend.NUMPY:
@@ -147,90 +169,77 @@ def random(*args, **kwargs):
 def sqrt(*args, **kwargs):
     if backend == Backend.NUMPY:
         return np.sqrt(*args, **kwargs)
-    elif backend == BACKEND.JAX_CPU:
-        raise NotImplementedError("function \"sqrt\" is not implemented for backend \"JAX_CPU\".")
-    elif backend == BACKEND.JAX_GPU:
-        raise NotImplementedError("function \"sqrt\" is not implemented for backend \"JAX_CPU\".")
-
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
+        return jnp.sqrt(*args, **kwargs)
+        
 def diag(*args, **kwargs):
     if backend == Backend.NUMPY:
         return np.diag(*args, **kwargs)
-    elif backend == BACKEND.JAX_CPU:
-        raise NotImplementedError("function \"diag\" is not implemented for backend \"JAX_CPU\".")
-    elif backend == BACKEND.JAX_GPU:
-        raise NotImplementedError("function \"diag\" is not implemented for backend \"JAX_CPU\".")
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
+        return jnp.diag(*args, **kwargs)
 
 def abs(*args, **kwargs):
     if backend == Backend.NUMPY:
         return np.abs(*args, **kwargs)
-    elif backend == BACKEND.JAX_CPU:
-        raise NotImplementedError("function \"abs\" is not implemented for backend \"JAX_CPU\".")
-    elif backend == BACKEND.JAX_GPU:
-        raise NotImplementedError("function \"abs\" is not implemented for backend \"JAX_CPU\".")
-
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
+        return jnp.abs(*args, **kwargs)
+        
 def conj(*args, **kwargs):
     if backend == Backend.NUMPY:
         return np.conj(*args, **kwargs)
-    elif backend == BACKEND.JAX_CPU:
-        raise NotImplementedError("function \"conj\" is not implemented for backend \"JAX_CPU\".")
-    elif backend == BACKEND.JAX_GPU:
-        raise NotImplementedError("function \"conj\" is not implemented for backend \"JAX_CPU\".")
-
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
+        return jnp.conj(*args, **kwargs)
+        
 def eye(*args, **kwargs):
     if backend == Backend.NUMPY:
         return np.eye(*args, **kwargs)
-    elif backend == BACKEND.JAX_CPU:
-        raise NotImplementedError("function \"eye\" is not implemented for backend \"JAX_CPU\".")
-    elif backend == BACKEND.JAX_GPU:
-        raise NotImplementedError("function \"eye\" is not implemented for backend \"JAX_CPU\".")
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
+        return jnp.eye(*args, **kwargs)
 
 def isclose(*args, **kwargs):
     if backend == Backend.NUMPY:
         return np.isclose(*args, **kwargs)
-    elif backend == BACKEND.JAX_CPU:
-        raise NotImplementedError("function \"isclose\" is not implemented for backend \"JAX_CPU\".")
-    elif backend == BACKEND.JAX_GPU:
-        raise NotImplementedError("function \"isclose\" is not implemented for backend \"JAX_CPU\".")
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
+        return jnp.isclose(*args, **kwargs)
 
 def all(*args, **kwargs):
     if backend == Backend.NUMPY:
         return np.all(*args, **kwargs)
-    elif backend == BACKEND.JAX_CPU:
-        raise NotImplementedError("function \"all\" is not implemented for backend \"JAX_CPU\".")
-    elif backend == BACKEND.JAX_GPU:
-        raise NotImplementedError("function \"all\" is not implemented for backend \"JAX_CPU\".")
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
+        return jnp.all(*args, **kwargs)
 
 def allclose(*args, **kwargs):
     if backend == Backend.NUMPY:
         return np.allclose(*args, **kwargs)
-    elif backend == BACKEND.JAX_CPU:
-        raise NotImplementedError("function \"allclose\" is not implemented for backend \"JAX_CPU\".")
-    elif backend == BACKEND.JAX_GPU:
-        raise NotImplementedError("function \"allclose\" is not implemented for backend \"JAX_CPU\".")
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
+        return jnp.allclose(*args, **kwargs)
 
-def real_if_close(*args, **kwargs):
+def real_if_close(a, tol=100):
     if backend == Backend.NUMPY:
-        return np.real_if_close(*args, **kwargs)
-    elif backend == BACKEND.JAX_CPU:
-        raise NotImplementedError("function \"real_if_close\" is not implemented for backend \"JAX_CPU\".")
-    elif backend == BACKEND.JAX_GPU:
-        raise NotImplementedError("function \"real_if_close\" is not implemented for backend \"JAX_CPU\".")
-
+        return np.real_if_close(a=a, tol=tol)
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
+        if jnp.allclose(jnp.imag(a), 0.0, rtol=tol*1.e-15):
+            return jnp.real(a)
+        else:
+            return a
+        
 def floor(*args, **kwargs):
     if backend == Backend.NUMPY:
         return np.floor(*args, **kwargs)
-    elif backend == BACKEND.JAX_CPU:
-        raise NotImplementedError("function \"floor\" is not implemented for backend \"JAX_CPU\".")
-    elif backend == BACKEND.JAX_GPU:
-        raise NotImplementedError("function \"floor\" is not implemented for backend \"JAX_CPU\".")
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
+        return jnp.floor(*args, **kwargs)
 
 def ascontiguousarray(*args, **kwargs):
     if backend == Backend.NUMPY:
         return np.ascontiguousarray(*args, **kwargs)
-    elif backend == BACKEND.JAX_CPU:
-        raise NotImplementedError("function \"ascontiguousarray\" is not implemented for backend \"JAX_CPU\".")
-    elif backend == BACKEND.JAX_GPU:
-        raise NotImplementedError("function \"ascontiguousarray\" is not implemented for backend \"JAX_CPU\".")
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
+        return jnp.asarray(*args, **kwargs)
+
+def round(*args, **kwargs):
+    if backend == Backend.NUMPY:
+        return np.round(*args, **kwargs)
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
+        return jnp.round(*args, **kwargs)
 
 def random_unitary(N):
     """
@@ -257,18 +266,14 @@ def random_unitary(N):
 def expm(*args, **kwargs):
     if backend == Backend.NUMPY:
         return scipy.linalg.expm(*args, **kwargs)
-    elif backend == BACKEND.JAX_CPU:
-        raise NotImplementedError("function \"expm\" is not implemented for backend \"JAX_CPU\".")
-    elif backend == BACKEND.JAX_GPU:
-        raise NotImplementedError("function \"expm\" is not implemented for backend \"JAX_CPU\".")
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
+        return jax.scipy.linalg.expm(*args, **kwargs)
 
 def flipud(*args, **kwargs):
     if backend == Backend.NUMPY:
         return np.flipud(*args, **kwargs)
-    elif backend == BACKEND.JAX_CPU:
-        raise NotImplementedError("function \"flipud\" is not implemented for backend \"JAX_CPU\".")
-    elif backend == BACKEND.JAX_GPU:
-        raise NotImplementedError("function \"flipud\" is not implemented for backend \"JAX_CPU\".")
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
+        return jnp.flipud(*args, **kwargs)
 
 def sparse_kron(*args, **kwargs):
     if backend == Backend.NUMPY:
@@ -281,125 +286,95 @@ def sparse_kron(*args, **kwargs):
 def min(*args, **kwargs):
     if backend == Backend.NUMPY:
         return np.min(*args, **kwargs)
-    elif backend == BACKEND.JAX_CPU:
-        raise NotImplementedError("function \"min\" is not implemented for backend \"JAX_CPU\".")
-    elif backend == BACKEND.JAX_GPU:
-        raise NotImplementedError("function \"min\" is not implemented for backend \"JAX_CPU\".")
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
+        return jnp.min(*args, **kwargs)
 
 def rand(*args, **kwargs):
     if backend == Backend.NUMPY:
         return np.random.rand(*args, **kwargs)
-    elif backend == BACKEND.JAX_CPU:
-        raise NotImplementedError("function \"min\" is not implemented for backend \"JAX_CPU\".")
-    elif backend == BACKEND.JAX_GPU:
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
         raise NotImplementedError("function \"min\" is not implemented for backend \"JAX_CPU\".")
 
 def isnan(*args, **kwargs):
     if backend == Backend.NUMPY:
         return np.isnan(*args, **kwargs)
-    elif backend == BACKEND.JAX_CPU:
-        raise NotImplementedError("function \"isnan\" is not implemented for backend \"JAX_CPU\".")
-    elif backend == BACKEND.JAX_GPU:
-        raise NotImplementedError("function \"isnan\" is not implemented for backend \"JAX_CPU\".")
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
+        return jnp.isnan(*args, **kwargs)
 
 def isinf(*args, **kwargs):
     if backend == Backend.NUMPY:
         return np.isinf(*args, **kwargs)
-    elif backend == BACKEND.JAX_CPU:
-        raise NotImplementedError("function \"isinf\" is not implemented for backend \"JAX_CPU\".")
-    elif backend == BACKEND.JAX_GPU:
-        raise NotImplementedError("function \"isinf\" is not implemented for backend \"JAX_CPU\".")
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
+        return jnp.isinf(*args, **kwargs)
 
 def sign(*args, **kwargs):
     if backend == Backend.NUMPY:
         return np.sign(*args, **kwargs)
-    elif backend == BACKEND.JAX_CPU:
-        raise NotImplementedError("function \"sign\" is not implemented for backend \"JAX_CPU\".")
-    elif backend == BACKEND.JAX_GPU:
-        raise NotImplementedError("function \"sign\" is not implemented for backend \"JAX_CPU\".")
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
+        return jnp.sign(*args, **kwargs)
 
 def real(*args, **kwargs):
     if backend == Backend.NUMPY:
         return np.real(*args, **kwargs)
-    elif backend == BACKEND.JAX_CPU:
-        raise NotImplementedError("function \"real\" is not implemented for backend \"JAX_CPU\".")
-    elif backend == BACKEND.JAX_GPU:
-        raise NotImplementedError("function \"real\" is not implemented for backend \"JAX_CPU\".")
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
+        return jnp.real(*args, **kwargs)
 
 def where(*args, **kwargs):
     if backend == Backend.NUMPY:
         return np.where(*args, **kwargs)
-    elif backend == BACKEND.JAX_CPU:
-        raise NotImplementedError("function \"where\" is not implemented for backend \"JAX_CPU\".")
-    elif backend == BACKEND.JAX_GPU:
-        raise NotImplementedError("function \"where\" is not implemented for backend \"JAX_CPU\".")
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
+        return jnp.where(*args, **kwargs)
 
 def imag(*args, **kwargs):
     if backend == Backend.NUMPY:
         return np.imag(*args, **kwargs)
-    elif backend == BACKEND.JAX_CPU:
-        raise NotImplementedError("function \"imag\" is not implemented for backend \"JAX_CPU\".")
-    elif backend == BACKEND.JAX_GPU:
-        raise NotImplementedError("function \"imag\" is not implemented for backend \"JAX_CPU\".")
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
+        return jnp.imag(*args, **kwargs)
 
 def zeros(*args, **kwargs):
     if backend == Backend.NUMPY:
         return np.zeros(*args, **kwargs)
-    elif backend == BACKEND.JAX_CPU:
-        raise NotImplementedError("function \"zeros\" is not implemented for backend \"JAX_CPU\".")
-    elif backend == BACKEND.JAX_GPU:
-        raise NotImplementedError("function \"zeros\" is not implemented for backend \"JAX_CPU\".")
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
+        return jnp.zerps(*args, **kwargs)
 
 def ones(*args, **kwargs):
     if backend == Backend.NUMPY:
         return np.ones(*args, **kwargs)
-    elif backend == BACKEND.JAX_CPU:
-        raise NotImplementedError("function \"ones\" is not implemented for backend \"JAX_CPU\".")
-    elif backend == BACKEND.JAX_GPU:
-        raise NotImplementedError("function \"ones\" is not implemented for backend \"JAX_CPU\".")
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
+        return jnp.ones(*args, **kwargs)
 
 def log(*args, **kwargs):
     if backend == Backend.NUMPY:
         return np.log(*args, **kwargs)
-    elif backend == BACKEND.JAX_CPU:
-        raise NotImplementedError("function \"log\" is not implemented for backend \"JAX_CPU\".")
-    elif backend == BACKEND.JAX_GPU:
-        raise NotImplementedError("function \"log\" is not implemented for backend \"JAX_CPU\".")
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
+        return jnp.log(*args, **kwargs)
 
 def arctan(*args, **kwargs):
     if backend == Backend.NUMPY:
         return np.arctan(*args, **kwargs)
-    elif backend == BACKEND.JAX_CPU:
-        raise NotImplementedError("function \"arctan\" is not implemented for backend \"JAX_CPU\".")
-    elif backend == BACKEND.JAX_GPU:
-        raise NotImplementedError("function \"arctan\" is not implemented for backend \"JAX_CPU\".")
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
+        return jnp.arctan(*args, **kwargs)
 
 def arctan2(*args, **kwargs):
     if backend == Backend.NUMPY:
         return np.arctan2(*args, **kwargs)
-    elif backend == BACKEND.JAX_CPU:
-        raise NotImplementedError("function \"arctan2\" is not implemented for backend \"JAX_CPU\".")
-    elif backend == BACKEND.JAX_GPU:
-        raise NotImplementedError("function \"arctan2\" is not implemented for backend \"JAX_CPU\".")
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
+        return jnp.arctan2(*args, **kwargs)
 
 def sin(*args, **kwargs):
     if backend == Backend.NUMPY:
         return np.sin(*args, **kwargs)
-    elif backend == BACKEND.JAX_CPU:
-        raise NotImplementedError("function \"sin\" is not implemented for backend \"JAX_CPU\".")
-    elif backend == BACKEND.JAX_GPU:
-        raise NotImplementedError("function \"sin\" is not implemented for backend \"JAX_CPU\".")
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
+        return jnp.sin(*args, **kwargs)
 
 def cos(*args, **kwargs):
     if backend == Backend.NUMPY:
         return np.cos(*args, **kwargs)
-    elif backend == BACKEND.JAX_CPU:
-        raise NotImplementedError("function \"cos\" is not implemented for backend \"JAX_CPU\".")
-    elif backend == BACKEND.JAX_GPU:
-        raise NotImplementedError("function \"cos\" is not implemented for backend \"JAX_CPU\".")
-
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
+        return jnp.cos(*args, **kwargs)
+        
 # ==========================================================================
-# ========================== Matrix contractions ===========================
+# ========================== Tensor contractions ===========================
 # ==========================================================================
 
 def trace(a, offset=0, axis1=0, axis2=1, dtype=None, out=None):
@@ -410,10 +385,8 @@ def trace(a, offset=0, axis1=0, axis2=1, dtype=None, out=None):
             logged_matrix_ops_trace[a.shape] = 1
     if backend == Backend.NUMPY:
         return np.trace(a, offset=offset, axis1=axis1, axis2=axis2, dtype=dtype, out=out)
-    elif backend == BACKEND.JAX_CPU:
-        raise NotImplementedError("function \"trace\" is not implemented for backend \"JAX_CPU\".")
-    elif backend == BACKEND.JAX_GPU:
-        raise NotImplementedError("function \"trace\" is not implemented for backend \"JAX_CPU\".")
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
+        return jnp.trace(a, offset=offset, axis1=axis1, axis2=axis2, dtype=dtype, out=out)
 
 def kron(a, b):
     if log_matrix_ops:
@@ -424,10 +397,8 @@ def kron(a, b):
             logged_matrix_ops_kron[key] = 1
     if backend == Backend.NUMPY:
         return np.kron(a, b)
-    elif backend == BACKEND.JAX_CPU:
-        raise NotImplementedError("function \"kron\" is not implemented for backend \"JAX_CPU\".")
-    elif backend == BACKEND.JAX_GPU:
-        raise NotImplementedError("function \"kron\" is not implemented for backend \"JAX_CPU\".")
+    elif backend == BACKEND.JAX_CPU or backend == BACKEND.JAX_GPU:
+        return jnp.kron(a, b)
 
 def tensordot(a, b, axes=2):
     if log_matrix_ops:
@@ -463,7 +434,7 @@ def dot(a, b, out=None):
         raise NotImplementedError("function \"dot\" is not implemented for backend \"JAX_CPU\".")
 
 # ==========================================================================
-# ========================== Matrix decompositions =========================
+# ========================== Tensor decompositions =========================
 # ==========================================================================
 
 def qr(a, mode='reduced'):
@@ -506,7 +477,7 @@ def eigh(a, UPLO='L'):
         raise NotImplementedError("function \"min\" is not implemented for backend \"JAX_CPU\".")
 
 # ==========================================================================
-# ======================== Other relevant operations =======================
+# ==================== Other relevant tensor operations ====================
 # ==========================================================================
 
 def transpose(a, axes=None):
